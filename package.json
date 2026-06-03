@@ -1,0 +1,39 @@
+{
+  "name": "crm-agreement-api",
+  "version": "1.0.0",
+  "description": "The master backend express API for handling agreement for CRM.",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "init-db": "node init-db.js",
+    "start": "node server.js",
+    "db:seed": "node seed.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vigscodebase/crm-agreement-api.git"
+  },
+  "author": "Vignesh Venkitachalam",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Vigscodebase//crm-agreement-api.git/issues"
+  },
+  "homepage": "https://github.com/Vigscodebase//crm-agreement-api.git#readme",
+  "dependencies": {
+    "@babel/cli": "^7.28.3",
+    "@babel/core": "^7.28.5",
+    "@babel/node": "^7.28.0",
+    "@babel/preset-env": "^7.28.5",
+    "axios": "^1.16.1",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.1.2",
+    "nodemailer": "^7.0.12",
+    "util": "^0.12.5",
+    "ws": "^8.19.0"
+  }
+}
