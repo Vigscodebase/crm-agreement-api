@@ -38,7 +38,8 @@ export const getAllTemplate = async (req, res) => {
                 }));
             }
         } catch (ghlError) {
-            console.error('GHL templates unavailable or missing, falling back to MongoDB:', ghlError.message);
+            // FIXED: Automatically serializes the error object securely into logs/backend.log
+            req.log.error(ghlError, 'GHL templates unavailable or missing, falling back to MongoDB');
         }
 
         // 2. Fallback to MongoDB if GHL returned no records
@@ -55,7 +56,8 @@ export const getAllTemplate = async (req, res) => {
 
         return res.status(200).json({ templates });
     } catch (error) {
-        console.error('Template Listing API Error:', error);
+        // FIXED: Route runtime failures securely through Pino
+        req.log.error(error, 'Template Listing API Fatal Error');
         return res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 
@@ -113,12 +115,14 @@ export const getSingleTemplate = async (req, res) => {
                 return res.status(200).json({ template: normalizedTemplate });
             }
         } catch (ghlError) {
-            console.error('Error fetching dynamic template configuration from GHL:', ghlError.message);
+            // FIXED: Route trace warnings safely into the log file
+            req.log.error(ghlError, 'Error fetching dynamic template configuration from GHL');
         }
 
         return res.status(404).json({ error: 'Template details could not be retrieved.' });
     } catch (error) {
-        console.error('Template Detail Lookup Error:', error);
+        // FIXED: Structural error logging integration
+        req.log.error(error, 'Template Detail Lookup Fatal Error');
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 }

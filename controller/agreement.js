@@ -127,7 +127,10 @@ export const updateAgreementDetails = async (req, res) => {
                 agreement.ghlDocumentId = ghlResponse.data?.proposal?.id || ghlResponse.data?.id;
             }
         } catch (ghlError) {
-            console.error('GHL Synchronization Failed (Cached locally):', ghlError.response?.data || ghlError.message);
+            // FIXED: Captures exact external sync failures directly inside backend.log cleanly
+            req.log.error({
+                ghlDetails: ghlError.response?.data || ghlError.message
+            }, 'GHL Synchronization Failed (Cached locally)');
         }
 
         // 4. Save updates back to MongoDB securely
@@ -142,7 +145,8 @@ export const updateAgreementDetails = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Agreement Processing Exception:', error);
+        // FIXED: Log fatal processing failures to file via Pino
+        req.log.error(error, 'Agreement Processing Fatal Exception');
         return res.status(500).json({ error: 'Internal Server Error', details: error.message });
     }
 };
@@ -163,7 +167,8 @@ export const getAgreementDetails = async (req, res) => {
 
         return res.status(200).json({ agreement });
     } catch (error) {
-        console.error('Agreement Fetch Exception:', error);
+        // FIXED: Log unexpected lookup bugs directly to backend.log
+        req.log.error(error, 'Agreement Fetch Fatal Exception');
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 };
