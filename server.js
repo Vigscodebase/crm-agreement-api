@@ -10,6 +10,7 @@ import templaterout from "./router/template.js";
 import agreementrout from "./router/agreement.js";
 import loggerrout from "./router/logger.js";
 import pandatemplaterout from "./router/pandatemplate.js";
+import pandadocumentrout from "./router/pandadocument.js";
 import { httpLogger } from "./logger.js";
 
 dotenv.config({ debug: true });
@@ -46,7 +47,8 @@ app.get('/', (req, res) => {
 app.use("/template", templaterout);
 app.use("/agreement", agreementrout);
 app.use("/log", loggerrout);
-app.use("/pandadoc", pandatemplaterout);
+app.use("/pandatemp", pandatemplaterout);
+app.use("/pandadoc", pandadocumentrout);
 
 server.listen(PORT, () => {
     console.log(`The server is running at ${PORT} port.`);
