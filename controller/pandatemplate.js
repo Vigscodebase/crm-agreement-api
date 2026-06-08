@@ -168,3 +168,45 @@ export const getTemplateEditingSession = async (req, res) => {
         });
     }
 };
+
+/**
+ * Delete a template permanently from PandaDoc Workspace
+ * Route: DELETE /pandadoc/delete-template/:template_id
+ */
+export const deletePandaTemplate = async (req, res) => {
+    try {
+        const { template_id } = req.params;
+
+        if (!template_id) {
+            return res.status(400).json({ error: 'Template parameter identifier is required.' });
+        }
+
+        if (!process.env.PANDA_API_KEY) {
+            return res.status(400).json({ error: 'PandaDoc integration is not configured on the server.' });
+        }
+
+        await axios.delete(
+            `https://api.pandadoc.com/public/v1/templates/${template_id}`,
+            {
+                headers: {
+                    "Authorization": `API-Key ${process.env.PANDA_API_KEY}`
+                }
+            }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Template successfully purged from workspace.'
+        });
+
+    } catch (error) {
+        req.log.error({
+            pandaDetails: error.response?.data || error.message
+        }, 'PandaDoc Template Deletion Exception Hierarchy');
+
+        return res.status(500).json({
+            error: 'Internal Server Error',
+            details: error.response?.data || error.message
+        });
+    }
+};

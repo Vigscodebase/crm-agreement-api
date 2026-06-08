@@ -1,5 +1,5 @@
 import express from "express";
-import { createPandaTemplate, listPandaTemplates, getTemplateEditingSession } from "../controller/pandatemplate.js"
+import { createPandaTemplate, listPandaTemplates, getTemplateEditingSession, deletePandaTemplate } from "../controller/pandatemplate.js"
 
 const pandatemplaterout = express.Router();
 
@@ -9,5 +9,6 @@ var jsonParser = express.json({ limit: '5mb' });
 pandatemplaterout.get('/template-listing', listPandaTemplates)
 pandatemplaterout.post('/create-template', jsonParser, createPandaTemplate)
 pandatemplaterout.post('/create-template-edit', jsonParser, getTemplateEditingSession)
+pandatemplaterout.delete('/delete-template/:template_id', deletePandaTemplate)
 
 export default pandatemplaterout;

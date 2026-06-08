@@ -10,7 +10,7 @@ pandadocumentrout.get('/document-listing', listPandaDocuments)
 pandadocumentrout.post('/create-document', jsonParser, createPandaDocument)
 pandadocumentrout.post('/create-document-edit', jsonParser, getDocumentEditingSession)
 pandadocumentrout.post('/send-document', jsonParser, sendPandaDocument)
-pandadocumentrout.delete('/delete-document', jsonParser, deletePandaDocument)
+pandadocumentrout.delete('/delete-document/:documentId', jsonParser, deletePandaDocument)
 pandadocumentrout.get('/download-document/:documentId', downloadPandaDocumentPdf)
 
 export default pandadocumentrout;
