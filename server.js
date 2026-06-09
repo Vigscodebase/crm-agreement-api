@@ -11,6 +11,8 @@ import agreementrout from "./router/agreement.js";
 import loggerrout from "./router/logger.js";
 import pandatemplaterout from "./router/pandatemplate.js";
 import pandadocumentrout from "./router/pandadocument.js";
+import rolerout from "./router/role.js";
+import userrout from "./router/user.js";
 import { httpLogger } from "./logger.js";
 
 dotenv.config({ debug: true });
@@ -19,6 +21,8 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+//app.use(cookieParser());
 
 // FIX: Removed trailing slash so the browser origin matching works perfectly
 const whitelist = ['http://192.168.2.63:5173'];
@@ -49,6 +53,8 @@ app.use("/agreement", agreementrout);
 app.use("/log", loggerrout);
 app.use("/pandatemp", pandatemplaterout);
 app.use("/pandadoc", pandadocumentrout);
+app.use("/role", rolerout);
+app.use("/user", userrout);
 
 server.listen(PORT, () => {
     console.log(`The server is running at ${PORT} port.`);
