@@ -39,7 +39,7 @@ async function initializeAuthRoleDatabase() {
         // 2. SEED SUPER ADMIN USER (Secure Upsert)
         // ==========================================
         const adminEmail = "sanket@clickmatix.com";
-        const rawPassword = "SuperAdmin@272";
+        const rawPassword = "SuperAdmin@372";
         const adminName = "Sanket Patel";
         const adminRole = "super_admin";
 
