@@ -14,6 +14,8 @@ import pandadocumentrout from "./router/pandadocument.js";
 import rolerout from "./router/role.js";
 import userrout from "./router/user.js";
 import { httpLogger } from "./logger.js";
+import signnowtemplaterout from "./router/signnowtemplate.js";
+import signnowdocumentrout from "./router/signnowdocument.js";
 
 dotenv.config({ debug: true });
 const app = express();
@@ -55,6 +57,8 @@ app.use("/pandatemp", pandatemplaterout);
 app.use("/pandadoc", pandadocumentrout);
 app.use("/role", rolerout);
 app.use("/user", userrout);
+app.use("/signnowdoc", signnowdocumentrout);
+app.use("/signnowtemp", signnowtemplaterout);
 
 server.listen(PORT, () => {
     console.log(`The server is running at ${PORT} port.`);

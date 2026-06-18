@@ -204,6 +204,69 @@ export const sendPandaDocument = async (req, res) => {
 };
 
 /**
+ * NEW: Manually override the lifecycle status tracking parameter index matching developer terms
+ * Route: POST /pandadoc/update-status
+ */
+export const updatePandaDocumentStatus = async (req, res) => {
+    try {
+        const { document_id, status } = req.body;
+
+        if (!document_id || !status) {
+            return res.status(400).json({ error: 'Both document_id and target status string/integer fields are required.' });
+        }
+
+        if (!process.env.PANDA_API_KEY) {
+            return res.status(400).json({ error: 'PandaDoc integration is not configured on the server.' });
+        }
+
+        // Standard lookup mapping converting frontend context strings to matching REST integers
+        const statusMap = {
+            'completed': 2,
+            'paid': 10,
+            'voided': 11,
+            'expired': 11,
+            'declined': 12
+        };
+
+        // Resolve status to its correct integer token configuration requirement
+        let targetStatusCode = typeof status === 'string' ? statusMap[status.toLowerCase()] : status;
+
+        if (targetStatusCode === undefined) {
+            return res.status(400).json({ error: `The status value [${status}] is not a valid manual PandaDoc override transition state.` });
+        }
+
+        const apiResponse = await axios.patch(
+            `https://api.pandadoc.com/public/v1/documents/${document_id}/status`,
+            {
+                status: targetStatusCode
+            },
+            {
+                headers: {
+                    "Authorization": `API-Key ${process.env.PANDA_API_KEY}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Document tracking matrix state manually adjusted successfully.',
+            details: apiResponse.data
+        });
+
+    } catch (error) {
+        req.log.error({
+            pandaDetails: error.response?.data || error.message
+        }, 'PandaDoc Manual Status Override Context Failure Exception');
+
+        return res.status(500).json({
+            error: 'Internal Server Error',
+            details: error.response?.data || error.message
+        });
+    }
+};
+
+/**
  * NEW: Fetch and proxy down the un-redacted generated compilation PDF document directly as a binary stream blob
  * Route: GET /pandadoc/download-document/:documentId
  */
