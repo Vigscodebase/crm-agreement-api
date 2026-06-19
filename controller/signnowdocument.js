@@ -1,5 +1,8 @@
 import axios from "axios";
 
+/**
+ * Helper to dynamically generate secure authorization headers for SignNow REST client instances
+ */
 const getSignNowHeaders = () => {
     const SIGNNOW_TOKEN = process.env.SIGNNOW_API_KEY || process.env.SIGNNOW_ACCESS_TOKEN;
     return {
@@ -23,9 +26,8 @@ export const listSignNowDocuments = async (req, res) => {
 
         // 1. Fetch the user's root folder setup to find the actual "Documents" folder ID
         const folderStructureResponse = await axios.get("https://api.signnow.com/user/folder", { headers });
-
         const rootFolder = folderStructureResponse.data;
-        let targetFolderId = rootFolder?.id; // Fallback to root folder ID if subfolders aren't parsed
+        let targetFolderId = rootFolder?.id;
 
         // 2. Identify the core "Documents" system folder from the subfolders list
         const foldersList = rootFolder?.folders || [];
@@ -41,19 +43,24 @@ export const listSignNowDocuments = async (req, res) => {
 
         // 3. Query the identified folder directly to pull the document collection list
         const apiResponse = await axios.get(`https://api.signnow.com/folder/${targetFolderId}`, { headers });
-
-        // Your existing parsing structure works perfectly here because folders store arrays under `.documents`
         const rawDocuments = apiResponse.data.documents || [];
 
-        // Map responses directly into your frontend UI dashboard grid status contexts
+        // Map live properties directly into your screenshot's exact filter metrics categories
         const mappedDocuments = rawDocuments.map(doc => {
             let cleanStatus = 'draft';
+
             if (doc.unbinned_states?.is_completed || doc.filled) {
-                cleanStatus = 'completed';
+                cleanStatus = 'signed';
             } else if (doc.unbinned_states?.is_invited) {
-                cleanStatus = 'sent';
+                cleanStatus = 'waiting for others';
             } else if (doc.unbinned_states?.is_viewed) {
-                cleanStatus = 'viewed';
+                cleanStatus = 'waiting for me';
+            } else if (doc.unbinned_states?.is_declined) {
+                cleanStatus = 'declined';
+            } else if (doc.unbinned_states?.is_expired) {
+                cleanStatus = 'expired';
+            } else if (doc.unbinned_states?.is_pending) {
+                cleanStatus = 'pending';
             }
 
             return {
@@ -96,7 +103,6 @@ export const createSignNowDocument = async (req, res) => {
             return res.status(400).json({ error: 'SignNow integration is not configured on the server.' });
         }
 
-        // Duplicate the layout canvas matrix out of the target blueprint template
         const apiResponse = await axios.post(
             `https://api.signnow.com/template/${template_id}/copy`,
             { document_name: name || "Conversion Rate Optimization Proposal Template - Test 1" },
@@ -123,7 +129,7 @@ export const createSignNowDocument = async (req, res) => {
 
 /**
  * Generate secure session links targeting document instance studio layouts
- * Route: POST /signnow/create-document-edit
+ * Route: POST /signnow/templates/create-document-edit
  */
 export const getDocumentEditingSession = async (req, res) => {
     try {
@@ -137,22 +143,32 @@ export const getDocumentEditingSession = async (req, res) => {
             return res.status(400).json({ error: 'SignNow integration is not configured on the server.' });
         }
 
-        // Provision a clean embedded sending / editing environment grid for authorization parameters
         const apiResponse = await axios.post(
-            `https://api.signnow.com/v2/documents/${document_id}/embedded-invites`,
+            `https://api.signnow.com/v2/documents/${document_id}/embedded-sending`,
             {
-                invites: [
-                    {
-                        email: "admin@clickmatix.com",
-                        role_id: "1",
-                        order: 1
+                type: "document",
+                link_expiration: 45,
+                redirect_uri: "https://signnow.com",
+                attributes: {
+                    default_fields: { visibility: true },
+                    fields: {
+                        signature: { visibility: true },
+                        text: { visibility: true },
+                        fullname: { visibility: true },
+                        email: { visibility: true },
+                        checkbox: { visibility: true },
+                        radiobutton: { visibility: true },
+                        attachment: { visibility: true },
+                        dropdown: { visibility: true },
+                        stamp: { visibility: true },
+                        formula: { visibility: true }
                     }
-                ]
+                }
             },
             { headers: getSignNowHeaders() }
         );
 
-        const sessionUrl = apiResponse.data.data?.[0]?.url || apiResponse.data.url || "";
+        const sessionUrl = apiResponse.data.data?.url || apiResponse.data.token || "";
 
         return res.status(200).json({
             success: true,
@@ -205,7 +221,7 @@ export const sendSignNowDocument = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: 'Agreement envelope dispatched successfully out to recipient workflows.',
-            status: 'sent'
+            status: 'waiting for others'
         });
 
     } catch (error) {
@@ -221,7 +237,7 @@ export const sendSignNowDocument = async (req, res) => {
 };
 
 /**
- * Manually override the lifecycle status tracking metric parameters matching user role selections
+ * Synchronize and return status configurations directly back to client workflow sessions
  * Route: POST /signnow/update-status
  */
 export const updateSignNowDocumentStatus = async (req, res) => {
@@ -234,8 +250,8 @@ export const updateSignNowDocumentStatus = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            message: 'Document tracking matrix state manually adjusted successfully.',
-            details: { document_id, status: status.toUpperCase() }
+            message: 'Document tracking matrix state manually adjusted and synchronized locally.',
+            details: { document_id, status: status.toLowerCase() }
         });
 
     } catch (error) {
