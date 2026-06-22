@@ -1,4 +1,89 @@
 import axios from "axios";
+import fs from "fs";
+import path from "path";
+
+// File destination layer to safeguard configuration states across server cold restarts
+const CACHE_FILE_PATH = path.resolve("./signnow_recipients_cache.json");
+
+/**
+ * Internal helper to read states out of local storage disk configurations safely as a standard object dictionary
+ */
+const loadFileCacheRegistry = () => {
+    try {
+        if (fs.existsSync(CACHE_FILE_PATH)) {
+            const rawData = fs.readFileSync(CACHE_FILE_PATH, "utf8");
+            return JSON.parse(rawData || "{}");
+        }
+    } catch (error) {
+        console.error("Failed to parse recipient database cache tracking states:", error.message);
+    }
+    return {};
+};
+
+/**
+ * Internal helper to commit and synchronize active storage layouts back to the JSON file layer
+ */
+const saveFileCacheRegistry = (activeDataInstance) => {
+    try {
+        const serializedData = JSON.stringify(activeDataInstance, null, 2);
+        fs.writeFileSync(CACHE_FILE_PATH, serializedData, "utf8");
+    } catch (error) {
+        console.error("Failed writing active registry configurations to filesystem boundaries:", error.message);
+    }
+};
+
+/**
+ * PLAIN OBJECT CACHE INTERFACE: Manages clear, multi-signer arrays assigned per document environment boundary
+ */
+const documentRecipientsRegistry = {
+    has: (documentId) => {
+        const data = loadFileCacheRegistry();
+        return Object.prototype.hasOwnProperty.call(data, documentId) && data[documentId]?.recipients?.length > 0;
+    },
+    get: (documentId) => {
+        const data = loadFileCacheRegistry();
+        return data[documentId] || null;
+    },
+    set: (documentId, newIncomingPayload) => {
+        const data = loadFileCacheRegistry();
+
+        if (!data[documentId]) {
+            data[documentId] = { recipients: [] };
+        }
+        if (!data[documentId].recipients) {
+            data[documentId].recipients = [];
+        }
+
+        const recipientsArray = data[documentId].recipients;
+        const existingIndex = recipientsArray.findIndex(r => r.email === newIncomingPayload.email);
+
+        if (existingIndex > -1) {
+            recipientsArray[existingIndex] = {
+                ...recipientsArray[existingIndex],
+                ...newIncomingPayload
+            };
+        } else {
+            recipientsArray.push(newIncomingPayload);
+        }
+
+        saveFileCacheRegistry(data);
+    },
+    delete: (documentId) => {
+        const data = loadFileCacheRegistry();
+        if (Object.prototype.hasOwnProperty.call(data, documentId)) {
+            delete data[documentId];
+            saveFileCacheRegistry(data);
+            return true;
+        }
+        return false;
+    },
+    get size() {
+        return Object.keys(loadFileCacheRegistry()).length;
+    },
+    keys: () => {
+        return Object.keys(loadFileCacheRegistry());
+    }
+};
 
 /**
  * Helper to dynamically generate secure authorization headers for SignNow REST client instances
@@ -24,12 +109,10 @@ export const listSignNowDocuments = async (req, res) => {
 
         const headers = getSignNowHeaders();
 
-        // 1. Fetch the user's root folder setup to find the actual "Documents" folder ID
         const folderStructureResponse = await axios.get("https://api.signnow.com/user/folder", { headers });
         const rootFolder = folderStructureResponse.data;
         let targetFolderId = rootFolder?.id;
 
-        // 2. Identify the core "Documents" system folder from the subfolders list
         const foldersList = rootFolder?.folders || [];
         const documentsFolder = foldersList.find(f => f.name?.toLowerCase() === 'documents' || f.system_folder === true);
 
@@ -41,11 +124,9 @@ export const listSignNowDocuments = async (req, res) => {
             return res.status(404).json({ error: 'Could not resolve a target SignNow Documents folder destination.' });
         }
 
-        // 3. Query the identified folder directly to pull the document collection list
         const apiResponse = await axios.get(`https://api.signnow.com/folder/${targetFolderId}`, { headers });
         const rawDocuments = apiResponse.data.documents || [];
 
-        // Map live properties directly into your screenshot's exact filter metrics categories
         const mappedDocuments = rawDocuments.map(doc => {
             let cleanStatus = 'draft';
 
@@ -69,7 +150,9 @@ export const listSignNowDocuments = async (req, res) => {
                 status: cleanStatus,
                 date_modified: doc.updated ? parseInt(doc.updated) * 1000 : doc.created ? parseInt(doc.created) * 1000 : Date.now(),
                 amount: doc.amount || '0.00',
-                currency: { symbol: doc.currency_symbol || '₹' }
+                currency: { symbol: doc.currency_symbol || '₹' },
+                hasRecipient: documentRecipientsRegistry.has(doc.id),
+                recipients: documentRecipientsRegistry.get(doc.id)?.recipients || []
             };
         });
 
@@ -116,14 +199,8 @@ export const createSignNowDocument = async (req, res) => {
         });
 
     } catch (error) {
-        req.log.error({
-            signnowDetails: error.response?.data || error.message
-        }, 'SignNow Document Provisioning Fatal Exception');
-
-        return res.status(500).json({
-            error: 'Internal Server Error',
-            details: error.response?.data || error.message
-        });
+        req.log.error({ signnowDetails: error.response?.data || error.message }, 'SignNow Document Provisioning Fatal Exception');
+        return res.status(500).json({ error: 'Internal Server Error', details: error.response?.data || error.message });
     }
 };
 
@@ -149,6 +226,7 @@ export const getDocumentEditingSession = async (req, res) => {
                 type: "document",
                 link_expiration: 45,
                 redirect_uri: "https://signnow.com",
+                redirect_target: "self",
                 attributes: {
                     default_fields: { visibility: true },
                     fields: {
@@ -177,14 +255,8 @@ export const getDocumentEditingSession = async (req, res) => {
         });
 
     } catch (error) {
-        req.log.error({
-            signnowDetails: error.response?.data || error.message
-        }, 'SignNow Document Interactive Studio Session Exception');
-
-        return res.status(500).json({
-            error: 'Internal Server Error',
-            details: error.response?.data || error.message
-        });
+        req.log.error({ signnowDetails: error.response?.data || error.message }, 'SignNow Document Interactive Studio Session Exception');
+        return res.status(500).json({ error: 'Internal Server Error', details: error.response?.data || error.message });
     }
 };
 
@@ -204,19 +276,40 @@ export const sendSignNowDocument = async (req, res) => {
             return res.status(400).json({ error: 'SignNow integration is not configured on the server.' });
         }
 
+        const headers = getSignNowHeaders();
+
+        const userProfileResponse = await axios.get("https://api.signnow.com/user", { headers });
+        const senderEmail = userProfileResponse.data?.primary_email || userProfileResponse.data?.email;
+
+        if (!senderEmail) {
+            return res.status(400).json({ error: 'Could not map a valid authenticated sender email identity from SignNow profile headers.' });
+        }
+
+        const cachedData = documentRecipientsRegistry.get(document_id);
+
+        if (!cachedData || !cachedData.recipients || cachedData.recipients.length === 0) {
+            return res.status(400).json({ error: 'No approval configuration found for this document. Please use "Ask for Approval" first.' });
+        }
+
+        // DYNAMIC FIX: Maps custom user-defined role values explicitly structured from modal configurations
+        const toPayload = cachedData.recipients.map((recipient, index) => ({
+            email: recipient.email,
+            role: recipient.role || "Client", // Pulls form value, defaults safely back to original string configuration
+            order: index + 1
+            // subject: recipient.subject, // COMMENTED OUT: Personalization block protected due to subscription limitation
+            // message: recipient.message  // COMMENTED OUT: Personalization block protected due to subscription limitation
+        }));
+
         await axios.post(
             `https://api.signnow.com/document/${document_id}/invite`,
             {
-                to: [{
-                    email: "placeholder-client@clickmatix.com",
-                    role: "Client",
-                    order: 1,
-                    subject: "Action Required: Your Proposed System Agreement Layout Is Ready for Review",
-                    message: "Please review and process execution configurations within your document signature block framework panel."
-                }]
+                to: toPayload,
+                from: senderEmail
             },
-            { headers: getSignNowHeaders() }
+            { headers }
         );
+
+        documentRecipientsRegistry.delete(document_id);
 
         return res.status(200).json({
             success: true,
@@ -225,14 +318,8 @@ export const sendSignNowDocument = async (req, res) => {
         });
 
     } catch (error) {
-        req.log.error({
-            signnowDetails: error.response?.data || error.message
-        }, 'SignNow Document Execution Dispatch Pipeline Exception');
-
-        return res.status(500).json({
-            error: 'Internal Server Error',
-            details: error.response?.data || error.message
-        });
+        req.log.error({ signnowDetails: error.response?.data || error.message }, 'SignNow Document Execution Dispatch Pipeline Exception');
+        return res.status(500).json({ error: 'Internal Server Error', details: error.response?.data || error.message });
     }
 };
 
@@ -261,6 +348,39 @@ export const updateSignNowDocumentStatus = async (req, res) => {
 };
 
 /**
+ * Persist designated user recipients configuration rules local to the active envelope
+ * Route: POST /signnow/save-recipient
+ */
+export const saveSignNowDocumentRecipient = async (req, res) => {
+    try {
+        const { document_id, email, subject, message, role, clearAll } = req.body;
+
+        if (!document_id) {
+            return res.status(400).json({ error: 'document_id configuration parameter is required.' });
+        }
+
+        if (clearAll) {
+            documentRecipientsRegistry.delete(document_id);
+            return res.status(200).json({ success: true, message: 'All recipients cleared for this document.' });
+        }
+
+        if (!email) {
+            return res.status(400).json({ error: 'Recipient email configuration is required.' });
+        }
+
+        // Stores custom layout roles into persistent dictionary entries
+        documentRecipientsRegistry.set(document_id, { email, subject, message, role });
+
+        return res.status(200).json({
+            success: true,
+            message: 'Recipient configurations successfully associated with this SignNow document framework.'
+        });
+    } catch (error) {
+        return res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    }
+};
+
+/**
  * Fetch and proxy down the un-redacted generated compilation PDF document directly as a binary stream blob
  * Route: GET /signnow/download-document/:documentId
  */
@@ -278,10 +398,7 @@ export const downloadSignNowDocumentPdf = async (req, res) => {
 
         const apiResponse = await axios.get(
             `https://api.signnow.com/document/${documentId}/download`,
-            {
-                headers: getSignNowHeaders(),
-                responseType: "stream"
-            }
+            { headers: getSignNowHeaders(), responseType: "stream" }
         );
 
         res.setHeader("Content-Type", "application/pdf");
@@ -290,14 +407,8 @@ export const downloadSignNowDocumentPdf = async (req, res) => {
         return apiResponse.data.pipe(res);
 
     } catch (error) {
-        req.log.error({
-            signnowDetails: error.response?.data || error.message
-        }, 'SignNow PDF Stream Generation Processing Exception');
-
-        return res.status(500).json({
-            error: 'Internal Server Error',
-            details: error.response?.data || error.message
-        });
+        req.log.error({ signnowDetails: error.response?.data || error.message }, 'SignNow PDF Stream Generation Processing Exception');
+        return res.status(500).json({ error: 'Internal Server Error', details: error.response?.data || error.message });
     }
 };
 
@@ -317,9 +428,9 @@ export const deleteSignNowDocument = async (req, res) => {
             return res.status(400).json({ error: 'SignNow integration is not configured on the server.' });
         }
 
-        await axios.delete(`https://api.signnow.com/document/${documentId}`, {
-            headers: getSignNowHeaders()
-        });
+        await axios.delete(`https://api.signnow.com/document/${documentId}`, { headers: getSignNowHeaders() });
+
+        documentRecipientsRegistry.delete(documentId);
 
         return res.status(200).json({
             success: true,
@@ -327,13 +438,7 @@ export const deleteSignNowDocument = async (req, res) => {
         });
 
     } catch (error) {
-        req.log.error({
-            signnowDetails: error.response?.data || error.message
-        }, 'SignNow Document Dropping System Pipeline Exception');
-
-        return res.status(500).json({
-            error: 'Internal Server Error',
-            details: error.response?.data || error.message
-        });
+        req.log.error({ signnowDetails: error.response?.data || error.message }, 'SignNow Document Dropping System Pipeline Exception');
+        return res.status(500).json({ error: 'Internal Server Error', details: error.response?.data || error.message });
     }
 };
