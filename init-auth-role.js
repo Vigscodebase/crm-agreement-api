@@ -19,7 +19,8 @@ async function initializeAuthRoleDatabase() {
             { role_slug: "super_admin", role_name: "Super Admin" },
             { role_slug: "admin", role_name: "Admin" },
             { role_slug: "sales_manager", role_name: "Sales Manager" },
-            { role_slug: "account_manager", role_name: "Account Manager" }
+            { role_slug: "account_manager", role_name: "Account Manager" },
+            { role_slug: "client", role_name: "Client" }
         ];
 
         // Perform bulk write ONCE outside any loops for optimal database performance

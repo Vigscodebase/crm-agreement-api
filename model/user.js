@@ -19,7 +19,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['super_admin', 'admin', 'sales_manager', 'account_manager'],
+        enum: ['super_admin', 'admin', 'sales_manager', 'account_manager', 'client'],
         required: true // Removed the invalid 'user' default to preserve enum integrity
     },
     image: {

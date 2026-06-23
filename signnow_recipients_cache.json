@@ -1,18 +1,1 @@
-{
-  "e84ce6cfb02a4b46bf29304a8046a7b8f27343c6": {
-    "recipients": [
-      {
-        "email": "gyan@clickmatix.com",
-        "subject": "Action Required: Your Proposed System Agreement Layout Is Ready for Review",
-        "message": "Please review and process execution configurations within your document signature block framework panel.",
-        "role": "Client"
-      },
-      {
-        "email": "mehul@clickmatix.com",
-        "subject": "Action Required: Your Proposed System Agreement Layout Is Ready for Review",
-        "message": "Please review and process execution configurations within your document signature block framework panel.",
-        "role": "Client"
-      }
-    ]
-  }
-}
+{}
